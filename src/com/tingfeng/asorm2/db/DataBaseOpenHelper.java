@@ -30,21 +30,32 @@ public class DataBaseOpenHelper extends android.database.sqlite.SQLiteOpenHelper
 		this.entityInfos=entityInfos;
 	}
 	
+	@Override
+	public synchronized SQLiteDatabase getWritableDatabase() {
+		return super.getWritableDatabase();
+	}
+	@Override
+	public synchronized SQLiteDatabase getReadableDatabase() {
+		return super.getReadableDatabase();
+	}
+	@Override
+	public synchronized void onOpen(SQLiteDatabase db) {
+		super.onOpen(db);
+	}
 	//创建table 
 	@SuppressLint("NewApi")
 	@Override
-	public void onCreate(SQLiteDatabase db) { 
+	public synchronized void onCreate(SQLiteDatabase db) { 
 		/*try {
 			EntityManager.getEntityManager(entityInfos).createAllEntity(db);
 		} catch (InstantiationException | IllegalAccessException e) {
 			e.printStackTrace();
 		}*/
-	} 
+	}
 	
 	@SuppressLint("NewApi")
 	@Override
-	public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-		synchronized("MySqliteTransactionProxy"){
+	public synchronized void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
 			if(!entityInfos.onDataBaseVersionChange(db))
 				return;
 			try {
@@ -57,15 +68,11 @@ public class DataBaseOpenHelper extends android.database.sqlite.SQLiteOpenHelper
 			}finally{
 				db.endTransaction();
 			}
-		}
-	} 
-	
-	
+	}
 	
 	@SuppressLint("NewApi")
 	@Override
-	public void onDowngrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-		synchronized("MySqliteTransactionProxy"){
+	public synchronized void onDowngrade(SQLiteDatabase db, int oldVersion, int newVersion) {
 			if(!entityInfos.onDataBaseVersionChange(db))
 				return;
 			try {
@@ -77,8 +84,7 @@ public class DataBaseOpenHelper extends android.database.sqlite.SQLiteOpenHelper
 				e.printStackTrace();
 			}finally{
 				db.endTransaction();
-			}
-		}
+			}		
 	}
 	@Override
 	public synchronized void close() {

@@ -2,13 +2,11 @@ package com.tingfeng.asorm2.entity;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import android.database.sqlite.SQLiteDatabase;
-import com.tingfeng.asorm2.common.ClassUtil;
-import com.tingfeng.asorm2.dao.SqliteCRUDUtils;
+import com.tingfeng.asorm2.dao.SqliteCRUDHelper;
 import com.tingfeng.asorm2.db.EntityToCreateSqlite3SqlUtils;
 import com.tingfeng.asorm2.log.Log;
 
@@ -58,22 +56,6 @@ public class EntityManager {
 	}
 	
 	/**
-	 * 添加此包下面的所有类到Entity的List中;
-	 * @param pakageName
-	 */
-	@SuppressWarnings("unchecked")
-	protected void addEntityToManager(String packageName){
-		if(packageName==null||packageName.trim().length()<1) return;
-		List<Class<?>> tmpList=ClassUtil.getClasses(packageName);
-		for(Class<?> cls:tmpList){
-			if(cls.isAssignableFrom(BaseEntity.class)){
-				//如果是BaseEntity的子类				
-				entityClasses.add((Class<? extends BaseEntity>)cls);
-			}
-		}
-	}
-	
-	/**
 	 * 此方法不会关闭db,不会管理事务
 	 * @param entityInfos
 	 * @param db
@@ -81,17 +63,14 @@ public class EntityManager {
 	 * @throws IllegalAccessException
 	 */
 	public <T extends BaseEntity> void createAllEntity(SQLiteDatabase db) throws InstantiationException, IllegalAccessException{		
-		synchronized("MySqliteTransactionProxy"){
 						Log.Info("create Tables start********************************************");
 						for(Class<? extends BaseEntity> cls:entityClasses){
 						String sql=EntityToCreateSqlite3SqlUtils.getSqlFormClass(cls);
-					if(!SqliteCRUDUtils.isTableExisted(db,entityTableName.get(cls)))
-						SqliteCRUDUtils.execSQL(db, sql);
+					if(!SqliteCRUDHelper.getSqliteCRUDHelper().isTableExisted(db,entityTableName.get(cls)))
+						SqliteCRUDHelper.getSqliteCRUDHelper().execSQL(db, sql);
 						Log.Info(sql);
 					}
-					Log.Info("create Tables successful********************************************");						
-		}
-		
+					Log.Info("create Tables successful********************************************");								
 	}
 	
 	/**
@@ -102,21 +81,19 @@ public class EntityManager {
 	 * @throws IllegalAccessException
 	 */
 	public <T extends BaseEntity> void onUpdateAllEntity(SQLiteDatabase db) throws InstantiationException, IllegalAccessException{		
-		synchronized("MySqliteTransactionProxy"){
 			Log.Info("upgrade Tables start********************************************");
 			for(Class<? extends BaseEntity> cls:entityClasses){
 				String s="DROP TABLE IF EXISTS ";
 				String sql=s+entityTableName.get(cls);
-				SqliteCRUDUtils.execSQL(db, sql);
+				SqliteCRUDHelper.getSqliteCRUDHelper().execSQL(db, sql);
 				
 				Log.Info(sql);
 				sql=EntityToCreateSqlite3SqlUtils.getSqlFormClass(cls);
-			if(!SqliteCRUDUtils.isTableExisted(db,entityTableName.get(cls)))
-				SqliteCRUDUtils.execSQL(db, sql);			
+			if(!SqliteCRUDHelper.getSqliteCRUDHelper().isTableExisted(db,entityTableName.get(cls)))
+				SqliteCRUDHelper.getSqliteCRUDHelper().execSQL(db, sql);		
 				Log.Info(sql);
 			}
 			Log.Info("upgrade Tables successful********************************************");
-		}
 	}
 	
 	private synchronized  void putPrimaryKeyNameByCls(Class<? extends BaseEntity> key,String value){

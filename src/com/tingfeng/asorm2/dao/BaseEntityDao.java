@@ -19,19 +19,19 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.annotation.JSONField;
 import com.tingfeng.asorm2.common.JsonUtils;
 import com.tingfeng.asorm2.common.ObjectType;
-import com.tingfeng.asorm2.db.DataBaseManager;
 import com.tingfeng.asorm2.entity.BaseEntity;
 import com.tingfeng.asorm2.entity.EntityManager;
-import com.tingfeng.asorm2.entity.Entity_FieldProperty;
-import com.tingfeng.asorm2.entity.Entity_FieldProperty.FieldType;
+import com.tingfeng.asorm2.entity.EntityFieldProperty;
+import com.tingfeng.asorm2.entity.EntityFieldProperty.FieldType;
 import com.tingfeng.asorm2.log.Log;
 
 /**
  *Dao中不会管理事务,事务在Service层中通过代理进行管理
  *@author dview
  */
-public class BaseEntityDao implements BaseEntityDaoI{
-	private static BaseEntityDaoI baseEntityDaoI=null;
+public class BaseEntityDao{
+	private static BaseEntityDao baseEntityDao=null;
+	private static SqliteCRUDHelper sqliteCRUDHelper=SqliteCRUDHelper.getSqliteCRUDHelper();
 	/**
 	 * 下面规定允许的数据类型
 	 */		
@@ -43,72 +43,56 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		   type_long="class java.lang.Long",
 		   type_integer="class java.lang.Integer",
 		   type_string="class java.lang.String";
-	
-	private  DataBaseManager dbManager;
 	private BaseEntityDao() {
 		super();
-		this.dbManager=DataBaseManager.getInstance();
 	}
 	
-	public static BaseEntityDaoI getBaseEntityDaoI(){
+	public static SqliteCRUDHelper getSqliteCRUDHelperI(){
+		return sqliteCRUDHelper;
+	}
+	
+	public static BaseEntityDao getBaseEntityDaoI(){
 		synchronized (BaseEntityDao.class) {	
-			if(baseEntityDaoI==null)
+			if(baseEntityDao==null)
 			{
-				baseEntityDaoI=new BaseEntityDao();
+				baseEntityDao=new BaseEntityDao();
 			}
-			return baseEntityDaoI;
+			return baseEntityDao;
 		}
 	}
 	
-	protected SQLiteDatabase openDataBase(){
-		  return dbManager.openWriteDatabase(); 
-	}
-	
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#getDataBase()
+	/**
+	 * 得到当前的最大的id号码的值
+	 * @param db
+	 * @return
 	 */
-	@Override
-	public SQLiteDatabase getDataBase(){
-	  SQLiteDatabase db=dbManager.openWriteDatabase();
-			  if(db==null){
-				  Log.Error(this.getClass(),"\nsqliteDataBase is null,have you set Transaction before use it?\n");
-			  }
-	  return db;
+	public <T extends BaseEntity> Long getMaxId(SQLiteDatabase db,T t){
+    	return getSqliteCRUDHelperI().getMaxId(db,t.getTableName(),t.getPrimaryKeyName());
 	}
 	
-	protected void closeDataBase(){
-		dbManager.closeWriteDatabase();
-	}
-	
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#getMaxId(T)
+	/**
+	 * 得到当前的最小的id号码的值
+	 * @param db
+	 * @return
 	 */
-	@Override
-	public <T extends BaseEntity> Long getMaxId(T t){
-    	return SqliteCRUDUtils.getMaxId(this.getDataBase(),t.getTableName(),t.getPrimaryKeyName());
+	public <T extends BaseEntity> Long getMinId(SQLiteDatabase db,T t){
+		return getSqliteCRUDHelperI().getMinId(db,t.getTableName(),t.getPrimaryKeyName());
 	}
 	
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#getMinId(T)
+	/**
+	 * 得到当前的的记录总数
+	 * @param db
+	 * @return
 	 */
-	@Override
-	public <T extends BaseEntity> Long getMinId(T t){
-		return SqliteCRUDUtils.getMinId(this.getDataBase(),t.getTableName(),t.getPrimaryKeyName());
-	}
-	
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#getCount(java.lang.Class)
-	 */
-	@Override
-	public <T extends BaseEntity> Long getCount(Class<T> cls){		
-		return SqliteCRUDUtils.getCount(this.getDataBase(),EntityManager.getPrimaryKeyNameByCls(cls));
+	public <T extends BaseEntity> Long getCount(SQLiteDatabase db,Class<T> cls){		
+		return getSqliteCRUDHelperI().getCount(db,EntityManager.getPrimaryKeyNameByCls(cls));
 	}
 	/**
 	 * 返回Entity所保存到数据库中的属性列表
 	 * @param entity
 	 * @return
 	 */
-	protected <T extends BaseEntity> List<String> getEntityColumnNameList(Class<T> cls){
+	protected <T extends BaseEntity> List<String> getEntityColumnNameList(SQLiteDatabase db,Class<T> cls){
 		   List<String> list=new ArrayList<String>();
 		   Class<?> clazz=cls;
 		   Field[] fs=clazz.getDeclaredFields();		
@@ -122,8 +106,8 @@ public class BaseEntityDao implements BaseEntityDaoI{
 			   FieldType fType=null;
 			   for(int i=0;i<as.length;i++){
 				   Annotation a=as[i];
-				   if(a instanceof Entity_FieldProperty){
-					   Entity_FieldProperty ef=(Entity_FieldProperty)a;
+				   if(a instanceof EntityFieldProperty){
+					   EntityFieldProperty ef=(EntityFieldProperty)a;
 					   if(ef!=null){
 						   fclass=ef.cls();
 						   fType=ef.FieldType();
@@ -137,12 +121,11 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		   return list;
 	}
 	
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#getEntityColumnNames(java.lang.Class, java.lang.Boolean, java.lang.String)
+	/**
+	 *得到除开指定名称的属性列 
 	 */
-	@Override
-	public <T extends BaseEntity> String[] getEntityColumnNames(Class<T> cls,Boolean isRepacePrimaryKeyName,String... exceptCoulums){
-		List<String> nameList=getEntityColumnNameList(cls);
+	public <T extends BaseEntity> String[] getEntityColumnNames(SQLiteDatabase db,Class<T> cls,Boolean isRepacePrimaryKeyName,String... exceptCoulums){
+		List<String> nameList=getEntityColumnNameList(db,cls);
 		if(isRepacePrimaryKeyName==null){
 			isRepacePrimaryKeyName=true;
 		}
@@ -161,16 +144,18 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		return names;
 	}
 	
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#get(java.lang.Class, java.lang.String)
+	/**失败返回null
+	 *  传入代Id值的Entity的值实例
+	 * @param t 返回t
+	 * @return
+	 * @throws Exception 
 	 */
-	@Override
-	public <T extends BaseEntity> T get(Class<T> cls,String id) throws Exception{	   
+	public <T extends BaseEntity> T get(SQLiteDatabase db,Class<T> cls,String id) throws Exception{	   
     	Cursor c=null;
     	try {   		
-			c=SqliteCRUDUtils.getCursor(this.getDataBase(),cls.newInstance().getTableName(), null,EntityManager.getPrimaryKeyNameByCls(cls)+"=?", new String[]{id}, null, null, null,null);
+			c=getSqliteCRUDHelperI().getCursor(db,cls.newInstance().getTableName(), null,EntityManager.getPrimaryKeyNameByCls(cls)+"=?", new String[]{id}, null, null, null,null);
 	    	if(c!=null&&c.moveToNext())
-	    	{ T t=this.initFromCursor(c,cls);
+	    	{ T t=this.initFromCursor(db,c,cls);
 	    	  return t;
 	    	}else{
 	    		return null;
@@ -182,16 +167,18 @@ public class BaseEntityDao implements BaseEntityDaoI{
 			if(c!=null) c.close();			
 		}   		       	
 	}
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#get(T)
+	/**失败返回null
+	 *  传入代Id值的Entity的值实例
+	 * @param t 返回t
+	 * @return
+	 * @throws Exception 
 	 */
-	@Override
-	public <T extends BaseEntity> T get(T t) throws Exception{	   
+	public <T extends BaseEntity> T get(SQLiteDatabase db,T t) throws Exception{	   
     	Cursor c=null;
     	try {   		
-			c=SqliteCRUDUtils.getCursor(this.getDataBase(),t.getTableName(), null, t.getPrimaryKeyName()+"=?", new String[]{t.getPrimaryKeyValue()+""}, null, null, null,null);
+			c=getSqliteCRUDHelperI().getCursor(db,t.getTableName(), null, t.getPrimaryKeyName()+"=?", new String[]{t.getPrimaryKeyValue()+""}, null, null, null,null);
 	    	if(c!=null&&c.moveToNext())
-	    	{ t=this.initFromCursor(c,t);
+	    	{ t=this.initFromCursor(db,c,t);
 	    	  return t;
 	    	}else{
 	    		return null;
@@ -203,19 +190,19 @@ public class BaseEntityDao implements BaseEntityDaoI{
 			if(c!=null) c.close();			
 		}   		       	
 	}
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#get(java.lang.Class, java.lang.String[], java.lang.String, java.lang.String[], java.lang.String)
+	/**手动的条件搜索
+	 * @return
+	 * @throws Exception 
 	 */
-	@Override
-	public <T extends BaseEntity> T get(Class<T> cls,String[] columns,String selection, String[] selectionArgs, String orderBy) throws Exception{	    	  
+	public <T extends BaseEntity> T get(SQLiteDatabase db,Class<T> cls,String[] columns,String selection, String[] selectionArgs, String orderBy) throws Exception{	    	  
 		
 		Cursor c=null;
     	try {   		
     		T t=cls.newInstance();
-			c=SqliteCRUDUtils.getCursor(this.getDataBase(), t.getTableName(),columns, selection, selectionArgs, null, null, orderBy,"0,1");
+			c=getSqliteCRUDHelperI().getCursor(db, t.getTableName(),columns, selection, selectionArgs, null, null, orderBy,"0,1");
 	    	if(c!=null&&c.moveToNext())
 	    	{ t=cls.newInstance();
-	    	  t= this.initFromCursor(c,t);
+	    	  t= this.initFromCursor(db,c,t);
 	    	  return t;
 	    	}else{
 	    		return null;
@@ -228,18 +215,21 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		}   		       	
 	}
 	
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#get(java.lang.Class, java.lang.String, java.lang.String)
+	/**失败返回null
+	 *  传入代Id值的Entity的值实例
+	 * @param t 返回t
+	 * @param exceptCoulums 不需要取出的数据列的名称
+	 * @return
+	 * @throws Exception 
 	 */
-	@Override
-	public <T extends BaseEntity> T get(Class<T> cls,String id,String... exceptCoulums) throws Exception{	    			
+	public <T extends BaseEntity> T get(SQLiteDatabase db,Class<T> cls,String id,String... exceptCoulums) throws Exception{	    			
     	T t=cls.newInstance();
     	Cursor c=null;
     	try {
-    		String[] names=getEntityColumnNames(t.getClass(), true,exceptCoulums);
-	    	c=SqliteCRUDUtils.getCursor(this.getDataBase(),t.getTableName() ,names, t.getPrimaryKeyName()+"=?", new String[]{id}, null, null, null,null);
+    		String[] names=getEntityColumnNames(db,t.getClass(), true,exceptCoulums);
+	    	c=getSqliteCRUDHelperI().getCursor(db,t.getTableName() ,names, t.getPrimaryKeyName()+"=?", new String[]{id}, null, null, null,null);
  			if(c!=null&&c.moveToNext())
-	    	{ t=this.initFromCursor(c,t);
+	    	{ t=this.initFromCursor(db,c,t);
 	    	  return t;
 	    	}else{
 	    		return null;
@@ -253,21 +243,30 @@ public class BaseEntityDao implements BaseEntityDaoI{
 	}
 	
 	
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#getList(java.lang.Class, java.lang.String, java.lang.String[], java.lang.String, java.lang.String, java.lang.String)
+	/**
+	 * 
+	 * 失败返回空数组
+	 * @param db
+	 * @param cls
+	 * @param selection
+	 * @param selectionArgs
+	 * @param orderBy
+	 * @param limit select * from table_name limit N,M //N序号从0开始
+	 * @param exceptCoulums 指定不从数据库取出的列
+	 * @return
+	 * @throws Exception
 	 */
-	 @Override
-	public <T extends BaseEntity> List<T> getList(Class<T> cls,String selection, String[] selectionArgs, String orderBy,String limit,String... exceptCoulums) throws Exception{
+	public <T extends BaseEntity> List<T> getList(SQLiteDatabase db,Class<T> cls,String selection, String[] selectionArgs, String orderBy,String limit,String... exceptCoulums) throws Exception{
 		 
 		 List<T> ts=new ArrayList<T>();
 		 Cursor c = null;
 		 try {
 			 T t=cls.newInstance();
-			 String[] names=getEntityColumnNames(cls, true, exceptCoulums);
-			   c=SqliteCRUDUtils.getCursor(this.getDataBase(),t.getTableName(),names, selection, selectionArgs, null, null, orderBy,limit);
+			 String[] names=getEntityColumnNames(db,cls, true, exceptCoulums);
+			   c=getSqliteCRUDHelperI().getCursor(db,t.getTableName(),names, selection, selectionArgs, null, null, orderBy,limit);
 			 while(c!=null&&c.moveToNext()){
 				 t=cls.newInstance();
-				 t=this.initFromCursor(c,t);
+				 t=this.initFromCursor(db,c,t);
 				 if(!ts.contains(t))
 				 ts.add(t);
 			 }		 
@@ -279,20 +278,27 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		}
 		 return ts;
 	    }
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#getList(java.lang.Class, java.lang.String, java.lang.String[], java.lang.String, java.lang.String)
+	/**
+	 * 失败返回空数组
+	 * @param db
+	 * @param cls
+	 *@param selection
+	 * @param selectionArgs
+	 * @param orderBy
+	 * @param limit select * from table_name limit N,M //N序号从0开始
+	 * @return
+	 * @throws Exception 
 	 */
-	 @Override
-	public <T extends BaseEntity> List<T> getList(Class<T> cls,String selection, String[] selectionArgs, String orderBy,String limit) throws Exception{
+	public <T extends BaseEntity> List<T> getList(SQLiteDatabase db,Class<T> cls,String selection, String[] selectionArgs, String orderBy,String limit) throws Exception{
 		 
 		 List<T> ts=new ArrayList<T>();
 		 Cursor c = null;
 		 try {
 			 T t=cls.newInstance();
-			 c=SqliteCRUDUtils.getCursor(this.getDataBase(),t.getTableName(),null, selection, selectionArgs, null, null, orderBy,limit);
+			 c=getSqliteCRUDHelperI().getCursor(db,t.getTableName(),null, selection, selectionArgs, null, null, orderBy,limit);
 			 while(c!=null&&c.moveToNext()){
 				 t=cls.newInstance();
-				 t=this.initFromCursor(c,t);
+				 t=this.initFromCursor(db,c,t);
 				 if(!ts.contains(t))
 				 ts.add(t);
 			 }		 
@@ -304,20 +310,23 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		}
 		 return ts;
 	    }
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#getList(java.lang.Class)
+	/**
+	 * 获取数据库中的所有的记录
+	 * @param db
+	 * @param cls
+	 * @return
+	 * @throws Exception
 	 */
-	 @Override
-	public <T extends BaseEntity> List<T> getList(Class<T> cls) throws Exception{
+	public <T extends BaseEntity> List<T> getList(SQLiteDatabase db,Class<T> cls) throws Exception{
 		 
 		 List<T> ts=new ArrayList<T>();
 		 Cursor c = null;
 		 try {
 			 T t=cls.newInstance();
-			 c=SqliteCRUDUtils.getCursor(this.getDataBase(),t.getTableName(),null,null,null,null,null,null,null);
+			 c=getSqliteCRUDHelperI().getCursor(db,t.getTableName(),null,null,null,null,null,null,null);
 			 while(c!=null&&c.moveToNext()){
 				 t=cls.newInstance();
-				 t=this.initFromCursor(c,t);
+				 t=this.initFromCursor(db,c,t);
 				 if(!ts.contains(t))
 				 ts.add(t);
 			 }		 
@@ -330,22 +339,25 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		 return ts;
 	    }
 	 
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#saveOrUpdate(T)
+	/**
+	 * 
+	 * @param t
+	 * @return 插入返回1
+	 * @param columnName 如果指定的字段,有相同的值存在于数据库,那么就更新数据库,否则保存
+	 * @throws Exception
 	 */
-	@Override
-	public <T extends BaseEntity> void saveOrUpdate(T t) throws Exception{
+	public <T extends BaseEntity> void saveOrUpdate(SQLiteDatabase db,T t) throws Exception{
 		 
 		 Cursor c = null;
 		 try {
 		
-		    c=SqliteCRUDUtils.getCursor(this.getDataBase(),t.getTableName(), null, t.getPrimaryKeyName()+"=?", new String[]{t.getPrimaryKeyValue()+""}, null, null, null,null);	
+		    c=getSqliteCRUDHelperI().getCursor(db,t.getTableName(), null, t.getPrimaryKeyName()+"=?", new String[]{t.getPrimaryKeyValue()+""}, null, null, null,null);	
 			if(c!=null&&c.moveToNext())
 		    	{//如果已经存在,则更新,否则insert
-		    		this.updateToDataBase(t);
+		    		this.updateToDataBase(db,t);
 		    	    return;
 		    	}		      
-			 this.saveToDataBase(t);
+			 this.saveToDataBase(db,t);
 			 return;
 		} catch (Exception e) {
 			Log.Error("saveOrUpdate:"+t.getClass().getName(),e.toString());
@@ -355,22 +367,17 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		}
 	 }
 	 
-	 
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#saveOrUpdate(T, java.lang.String)
-	 */
-	 @Override
-	public <T extends BaseEntity> void saveOrUpdate(T t,String columnName) throws Exception{
+	public <T extends BaseEntity> void saveOrUpdate(SQLiteDatabase db,T t,String columnName) throws Exception{
 		 
 		 Cursor c = null;
 		 try {
-			 c=SqliteCRUDUtils.getCursor(this.getDataBase(),t.getTableName(),  null, columnName+"=?", new String[]{t.getClass().getField(columnName).get(t)+""}, null, null, null,null);
+			 c=getSqliteCRUDHelperI().getCursor(db,t.getTableName(),  null, columnName+"=?", new String[]{t.getClass().getField(columnName).get(t)+""}, null, null, null,null);
 			if(c!=null&&c.moveToNext())
 		    	{//如果已经存在,则更新,否则insert
-		    		this.updateToDataBaseByColumn(t,columnName);
+		    		this.updateToDataBaseByColumn(db,t,columnName);
 		    	    return;
 		    	}		      
-			 this.saveToDataBase(t);
+			 this.saveToDataBase(db,t);
 			 return;
 		} catch (Exception e) {
 			Log.Error("saveOrUpdate:"+t.getClass().getName(),e.toString());
@@ -380,86 +387,91 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		}
 	 }
 	 
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#deleteAndSave(T)
-	 */
-	 @Override
-	public <T extends BaseEntity> void deleteAndSave(T t) throws Exception{
+		/**
+		 * 先删除,后保存,没有则不删除
+		 * @param db
+		 * @param t
+		 * @throws Exception
+		 */
+	public <T extends BaseEntity> void deleteAndSave(SQLiteDatabase db,T t) throws Exception{
 		 
 		 try {
-			 this.delete(t);
-			 this.save( t);
+			 this.delete(db,t);
+			 this.save(db, t);
 		} catch (Exception e) {
 			Log.Error("saveOrUpdate:"+t.getClass().getName(),e.toString());
 			throw e;
 		}
 	 }
 	 
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#saveOrUpdateList(java.util.List)
+	/**
+	 * 
+	 * @param db
+	 * @param list
+	 * @param column 指定列的值相同就更新,否则就保存
+	 * @throws Exception
 	 */
-	@Override
-	public <T extends BaseEntity> void saveOrUpdateList(List<T> list) throws Exception{
+	public <T extends BaseEntity> void saveOrUpdateList(SQLiteDatabase db,List<T> list) throws Exception{
 		
 		try{
 			for(T t:list){
-				saveOrUpdate(t);					
+				saveOrUpdate(db,t);					
 			}
 		}catch(Exception e){
 			throw new Exception("saveOrUpdateList: "+e.toString());
 		}
 	}
 	
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#saveOrUpdateList(java.util.List, java.lang.String)
-	 */
-	@Override
-	public <T extends BaseEntity> void saveOrUpdateList(List<T> list,String column) throws Exception{
+
+	public <T extends BaseEntity> void saveOrUpdateList(SQLiteDatabase db,List<T> list,String column) throws Exception{
 		
 		try{
 			for(T t:list){
-				saveOrUpdate(t,column);					
+				saveOrUpdate(db,t,column);					
 			}
 		}catch(Exception e){
 			throw new Exception("saveOrUpdateList: "+" Fail");
 		}
 	}
 	
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#deleteAndSaveList(java.util.List)
+	/**
+	 *删除后保存所有 
+	 * @param db
+	 * @param list
+	 * @return
+	 * @throws Exception 
 	 */
-	@Override
-	public <T extends BaseEntity> void deleteAndSaveList(List<T> list) throws Exception{
+	public <T extends BaseEntity> void deleteAndSaveList(SQLiteDatabase db,List<T> list) throws Exception{
 		try{
 			for(T t:list){
-				deleteAndSave(t);					
+				deleteAndSave(db,t);					
 			}
 		}catch(Exception e){
 			throw new Exception("saveOrUpdateList: "+" Fail");
 		}
 	}
 	
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#update(T)
-	 */
-	@Override
-	public <T extends BaseEntity> int update(T t) throws Exception{
+
+	public <T extends BaseEntity> int update(SQLiteDatabase db,T t) throws Exception{
 		 
 		 try {
-			this.updateToDataBase(t);
+			this.updateToDataBase(db,t);
     	    return 2;
 		} catch (Exception e) {
 			Log.Error("update:"+t.getClass().getName(),e.toString());
 			throw e;
 		}
 	 }
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#update(T, java.lang.String[])
+	/**
+	 * 
+	 * @param t
+	 * @param notUpdateColumns 不需要更新的字段名称的数组
+	 * @return
+	 * @throws Exception 
 	 */
-	 @Override
-	public <T extends BaseEntity> int update(T t,String[] notUpdateColumns) throws Exception{		 
+	public <T extends BaseEntity> int update(SQLiteDatabase db,T t,String[] notUpdateColumns) throws Exception{		 
 		 try {
-			this.updateToDataBase(t,notUpdateColumns);
+			this.updateToDataBase(db,t,notUpdateColumns);
     	    return 2;
 		} catch (Exception e) {
 			Log.Error("update:"+t.getClass().getName(),e.toString());
@@ -467,13 +479,10 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		}
 	 }
 	 
-	/* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#save(T)
-	 */
-	@Override
-	public <T extends BaseEntity> int save(T t) throws Exception{
+
+	public <T extends BaseEntity> int save(SQLiteDatabase db,T t) throws Exception{
 		 try {		 
-			 this.saveToDataBase(t);
+			 this.saveToDataBase(db,t);
 			 return 1;
 		} catch (Exception e) {
 			Log.Error("save:"+t.getClass().getName(),e.toString());
@@ -481,30 +490,24 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		}
 	 }
 	 
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#delete(java.lang.Class, java.lang.String)
-	 */
-	@Override
-	public <T extends BaseEntity> int delete(Class<T> cls,String id) throws Exception{
+
+	public <T extends BaseEntity> int delete(SQLiteDatabase db,Class<T> cls,String id) throws Exception{
 		 if(id.equals("0"))
 				throw new Exception("删除的_id号码不能够是0,请稍后再试!");  
 		 try {
-	   		SqliteCRUDUtils.delete(this.getDataBase(), cls.newInstance().getTableName(),EntityManager.getPrimaryKeyNameByCls(cls), id);
+	   		getSqliteCRUDHelperI().delete(db, cls.newInstance().getTableName(),EntityManager.getPrimaryKeyNameByCls(cls), id);
 	   		return 1;
 		} catch (Exception e) {
 			Log.Error("delete:"+this.getClass().getName(),e.toString());
 			throw e;
 		}
 	 }
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#delete(T)
-	 */
-	@Override
-	public <T extends BaseEntity> int delete(T t) throws Exception{
+
+	public <T extends BaseEntity> int delete(SQLiteDatabase db,T t) throws Exception{
 		 if(t.getPrimaryKeyValue().equals("0"))
 				throw new Exception("删除的_id号码不能够是0,请稍后再试!");  
 		 try {
-	   		SqliteCRUDUtils.delete(this.getDataBase(), t.getTableName(),t.getPrimaryKeyName(), t.getPrimaryKeyValue()+"");
+	   		getSqliteCRUDHelperI().delete(db, t.getTableName(),t.getPrimaryKeyName(), t.getPrimaryKeyValue()+"");
 	   		return 1;
 		} catch (Exception e) {
 			Log.Error("delete:"+this.getClass().getName(),e.toString());
@@ -512,13 +515,10 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		}
 	 }
 	 
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#deleteList(java.lang.Class, java.lang.String)
-	 */
-	@Override
-	public <T extends BaseEntity> int deleteList(Class<T> cls,String ids) throws Exception{
+
+	public <T extends BaseEntity> int deleteList(SQLiteDatabase db,Class<T> cls,String ids) throws Exception{
 		   try {
-			   SqliteCRUDUtils.deleteList(this.getDataBase(),cls.newInstance().getTableName(),EntityManager.getPrimaryKeyNameByCls(cls), ids);
+			   getSqliteCRUDHelperI().deleteList(db,cls.newInstance().getTableName(),EntityManager.getPrimaryKeyNameByCls(cls), ids);
 		    return 1;
 		   } catch (Exception e) {
 				Log.Error("deleteList:"+this.getClass().getName(),e.toString());
@@ -526,11 +526,8 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		}
 	 }
 	 
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#deleteList(java.util.List)
-	 */
-	@Override
-	public <T extends BaseEntity> int deleteList(List<T> ts) throws Exception{
+
+	public <T extends BaseEntity> int deleteList(SQLiteDatabase db,List<T> ts) throws Exception{
 		   try {
 			   StringBuffer sb=new StringBuffer();
 			   int i=0;
@@ -541,7 +538,7 @@ public class BaseEntityDao implements BaseEntityDaoI{
 				   else cls=t.getClass();
 				   sb.append(t.getPrimaryKeyValue());
 			   }
-			   this.deleteList(cls, sb.toString());
+			   this.deleteList(db,cls, sb.toString());
 		    return 1;
 		   } catch (Exception e) {
 				Log.Error("deleteList:"+this.getClass().getName(),e.toString());
@@ -549,27 +546,29 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		}
 	 }
 	 
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#deleteAll(java.lang.Class)
-	 */
-	@Override
-	public <T extends BaseEntity> int deleteAll(Class<T> cls) throws Exception{
+
+	public <T extends BaseEntity> int deleteAll(SQLiteDatabase db,Class<T> cls) throws Exception{
 		 try {
-			SqliteCRUDUtils.deleteAll(this.getDataBase(),cls.newInstance().getTableName());
+			getSqliteCRUDHelperI().deleteAll(db,cls.newInstance().getTableName());
 		    return 1;
 		   } catch (Exception e) {
 				Log.Error("deleteAll:"+this.getClass().getName(),e.toString());
 				throw e;
 		}
 	 }	 
-	 /* (non-Javadoc)
-	 * @see com.dview.p242.dao.BaseEntityDaoI#getColumns(java.lang.String, java.lang.String[], java.lang.String)
+	/**
+	 * 
+	 * @param db
+	 * @param sqlString
+	 * @param selectionArgs sql中?占位符的参数
+	 * @param columns 需要出去的列的名称,没有会赋值null;取出的列只支持float/string/blob/string/null这几种类型;
+	 * *其中二进制会转换成为byte[]类型;除开这些类型外,系统会默认用string来取出数据
+	 * @return List<Object[]>
 	 */
-	 @Override
-	public <T extends BaseEntity> List<Object[]> getColumns(String sqlString,String[] selectionArgs,String...columns){
+	public <T extends BaseEntity> List<Object[]> getColumns(SQLiteDatabase db,String sqlString,String[] selectionArgs,String...columns){
 		 List<Object[]> list=new ArrayList<Object[]>();
 		 Object[] objs=null;
-		 Cursor cursor=SqliteCRUDUtils.getCursor(this.getDataBase(), sqlString, selectionArgs);
+		 Cursor cursor=getSqliteCRUDHelperI().getCursor(db, sqlString, selectionArgs);
 		 while(cursor.moveToNext()){
 		    objs=new Object[columns.length];
 		    try{
@@ -609,10 +608,10 @@ public class BaseEntityDao implements BaseEntityDaoI{
 		 return list;
 	 }
 	    	
-	    	/* (non-Javadoc)
-			 * @see com.dview.p242.dao.BaseEntityDaoI#isStaticField(java.lang.reflect.Field)
+			/**
+			 * 判断一个属性是否是静态变量,此类暂时不用
+			 * @param field
 			 */
-	    	@Override
 			@JSONField(serialize=false)
 	    	public boolean isStaticField(Field field){
 	    		  boolean isStatic = Modifier.isStatic(field.getModifiers());
@@ -632,8 +631,8 @@ public class BaseEntityDao implements BaseEntityDaoI{
     				FieldType fType=null;
     				   for(int i=0;i<as.length;i++){
     					   Annotation a=as[i];
-    					   if(a instanceof Entity_FieldProperty){
-    						   Entity_FieldProperty ef=(Entity_FieldProperty)a;
+    					   if(a instanceof EntityFieldProperty){
+    						   EntityFieldProperty ef=(EntityFieldProperty)a;
     						   if(ef!=null){
     						   fclass=ef.cls();
     						   fType=ef.FieldType();
@@ -725,8 +724,8 @@ public class BaseEntityDao implements BaseEntityDaoI{
 	    		   FieldType fType=null;
 	    		   for(int i=0;i<as.length;i++){
 	    			   Annotation a=as[i];
-	    			   if(a instanceof Entity_FieldProperty){
-	    				   Entity_FieldProperty ef=(Entity_FieldProperty)a;
+	    			   if(a instanceof EntityFieldProperty){
+	    				   EntityFieldProperty ef=(EntityFieldProperty)a;
 	    				   if(ef!=null){
 	    					   fclass=ef.cls();
 	    					   fType=ef.FieldType();
@@ -780,29 +779,19 @@ public class BaseEntityDao implements BaseEntityDaoI{
 	    	   }	
 	    	   return maps;
 	       }
-	    	//通过Cursor自动将值赋值到实体
-	    	/* (non-Javadoc)
-			 * @see com.dview.p242.dao.BaseEntityDaoI#initFromCursor(android.database.Cursor, java.lang.Class)
-			 */
-	    	@Override
+
 			@JSONField(serialize=false)
-	    	public <T extends BaseEntity> T initFromCursor(Cursor c,Class<T> cls) throws IllegalAccessException, IllegalArgumentException, InstantiationException{
+	    	public <T extends BaseEntity> T initFromCursor(SQLiteDatabase db,Cursor c,Class<T> cls) throws IllegalAccessException, IllegalArgumentException, InstantiationException{
 	    		return setFieldValue(c,cls);						
 	    	}
-	    	/* (non-Javadoc)
-			 * @see com.dview.p242.dao.BaseEntityDaoI#initFromCursor(android.database.Cursor, T)
-			 */
-	    	@Override
-			public <T extends BaseEntity> T initFromCursor(Cursor c,T t) throws IllegalAccessException, IllegalArgumentException, InstantiationException{
+
+			public <T extends BaseEntity> T initFromCursor(SQLiteDatabase db,Cursor c,T t) throws IllegalAccessException, IllegalArgumentException, InstantiationException{
 	    		return setFieldValue(c,t);						
 	    	}
 	    	
-	    	/* (non-Javadoc)
-			 * @see com.dview.p242.dao.BaseEntityDaoI#getContentValues(T)
-			 */
-	    	@Override
+	
 			@JSONField(serialize=false)
-	    	public <T extends BaseEntity> ContentValues getContentValues(T t) throws IllegalAccessException, IllegalArgumentException
+	    	public <T extends BaseEntity> ContentValues getContentValues(SQLiteDatabase db,T t) throws IllegalAccessException, IllegalArgumentException
 	    	{
 	    		ContentValues cv;
 	    		cv=new ContentValues();
@@ -840,23 +829,22 @@ public class BaseEntityDao implements BaseEntityDaoI{
 	    		}//end for
 	    		return cv;
 	    	}
-	    	/* (non-Javadoc)
-			 * @see com.dview.p242.dao.BaseEntityDaoI#getMapValues(T)
+			/**
+			 * 返回该类属性的键值对,键和值均为String类型
+			 * @return
+			 * @throws IllegalAccessException
+			 * @throws IllegalArgumentException
 			 */
-	    	@Override
 			@JSONField(serialize=false)
-	    	public <T extends BaseEntity> Map<String,Object> getMapValues(T t) throws IllegalAccessException, IllegalArgumentException
+	    	public <T extends BaseEntity> Map<String,Object> getMapValues(SQLiteDatabase db,T t) throws IllegalAccessException, IllegalArgumentException
 	    	{
 	    	   return getFieldValue(false,t);	
 	    	}
 	    	
 	    	
-	    	/* (non-Javadoc)
-			 * @see com.dview.p242.dao.BaseEntityDaoI#saveToDataBase(T)
-			 */
-	    	@Override
+
 			@JSONField(serialize=false)
-	    	public <T extends BaseEntity> void saveToDataBase(T t) throws Exception{		
+	    	public <T extends BaseEntity> void saveToDataBase(SQLiteDatabase db,T t) throws Exception{		
 	    		if(t.getPrimaryKeyValue()==0)
 	    			throw new Exception("存储的_id号码不能够是0,请稍后再试!");
 	    		Map<String,Object> maps=getFieldValue(true,t);
@@ -878,25 +866,25 @@ public class BaseEntityDao implements BaseEntityDaoI{
 	    			i++;			
 	    		}
 	    		sql+=") values ("+q+")";
-	    		this.getDataBase().execSQL(sql, objs);
+	    		db.execSQL(sql, objs);
 	    	}	
 	    	
-	    	/* (non-Javadoc)
-			 * @see com.dview.p242.dao.BaseEntityDaoI#updateToDataBase(T)
-			 */
-	    	@Override
+	
 			@JSONField(serialize=false)
-	    	public <T extends BaseEntity> void updateToDataBase(T t) throws Exception{
+	    	public <T extends BaseEntity> void updateToDataBase(SQLiteDatabase db,T t) throws Exception{
 	    		if(t.getPrimaryKeyValue()==0)
 	    			throw new Exception("更新的_id号码不能够是0,请稍后再试!");
-	    		this.updateToDataBaseByColumn(t,t.getPrimaryKeyName());
+	    		this.updateToDataBaseByColumn(db,t,t.getPrimaryKeyName());
 	    	}
-	    	/* (non-Javadoc)
-			 * @see com.dview.p242.dao.BaseEntityDaoI#updateToDataBaseByColumn(T, java.lang.String)
+			/**
+			 * 
+			 * @param tableName
+			 * @param db
+			 * @param columnName 指定此此表的一个列名称,更新所有相同的记录
+			 * @throws Exception
 			 */
-	    	@Override
 			@JSONField(serialize=false)
-	    	public <T extends BaseEntity> void updateToDataBaseByColumn(T t,String columnName) throws Exception{
+	    	public <T extends BaseEntity> void updateToDataBaseByColumn(SQLiteDatabase db,T t,String columnName) throws Exception{
 	    		if(columnName==null)
 	    			throw new Exception("更新的columnName不能够是null,请稍后再试!");
 	    		Map<String,Object> maps=getFieldValue(true,t);
@@ -918,15 +906,18 @@ public class BaseEntityDao implements BaseEntityDaoI{
 	    			i++;			
 	    		}		
 	    		sql=sql+" where "+columnName+"=?";		
-	    		this.getDataBase().execSQL(sql, objs);
+	    		db.execSQL(sql, objs);
 	    	}
 	    	
-	    	/* (non-Javadoc)
-			 * @see com.dview.p242.dao.BaseEntityDaoI#updateToDataBase(T, java.lang.String[])
+			/**
+			 * 
+			 * @param tableName
+			 * @param data
+			 * @param notUpdateColumns 不需要跟新的字段,区分大小写
+			 * @throws Exception 
 			 */
-	    	@Override
 			@JSONField(serialize=false)
-	    	public <T extends BaseEntity> void updateToDataBase(T t,String[] notUpdateColumns) throws Exception{
+	    	public <T extends BaseEntity> void updateToDataBase(SQLiteDatabase db,T t,String[] notUpdateColumns) throws Exception{
 	    		if(t.getPrimaryKeyValue()==0)
 	    			throw new Exception("更新的_id号码不能够是0,请稍后再试!");		
 	    		Map<String,Object> maps=getFieldValue(true,t);
@@ -965,6 +956,6 @@ public class BaseEntityDao implements BaseEntityDaoI{
 	    		  i++;
 	    		}		
 	    		sql=sql+" where "+t.getPrimaryKeyName()+"=?";	
-	    		this.getDataBase().execSQL(sql, objs);
+	    		db.execSQL(sql, objs);
 	    	}
 }

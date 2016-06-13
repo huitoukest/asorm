@@ -11,8 +11,7 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONException;
 import com.alibaba.fastjson.JSONObject;
-import com.tingfeng.asorm2.json.JsonFieldProperty;
-import com.tingfeng.asorm2.json.JsonFieldProperty.JsonPropertyType;
+import com.tingfeng.asorm2.common.JsonFieldProperty.JsonPropertyType;
 
 
 public class JsonUtils {

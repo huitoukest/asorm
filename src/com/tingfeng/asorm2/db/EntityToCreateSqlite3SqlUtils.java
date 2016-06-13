@@ -7,8 +7,8 @@ import java.lang.reflect.Field;
 import com.tingfeng.asorm2.common.ObjectType;
 import com.tingfeng.asorm2.entity.BaseEntity;
 import com.tingfeng.asorm2.entity.EntityManager;
-import com.tingfeng.asorm2.entity.Entity_FieldProperty;
-import com.tingfeng.asorm2.entity.Entity_FieldProperty.FieldType;
+import com.tingfeng.asorm2.entity.EntityFieldProperty;
+import com.tingfeng.asorm2.entity.EntityFieldProperty.FieldType;
 
 
 /**
@@ -24,8 +24,8 @@ public class EntityToCreateSqlite3SqlUtils {
 	   FieldType fType=null;
 	   for(int j=0;j<as.length;j++){
 		   Annotation a=as[j];
-		   if(a instanceof Entity_FieldProperty){
-			   Entity_FieldProperty ef=(Entity_FieldProperty)a;
+		   if(a instanceof EntityFieldProperty){
+			   EntityFieldProperty ef=(EntityFieldProperty)a;
 			   if(ef!=null){
 				   fclass=ef.cls();
 				   fType=ef.FieldType();

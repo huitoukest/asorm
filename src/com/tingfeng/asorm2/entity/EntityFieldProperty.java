@@ -15,7 +15,7 @@ import java.lang.annotation.Target;
  */
 @Target(ElementType.FIELD)
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Entity_FieldProperty {
+public @interface EntityFieldProperty {
 	
 	/**
 	 * 指定一个类型是FieldType的,表现为FieldType=默认为FieldType.Base的Annotation

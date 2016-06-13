@@ -1,4 +1,4 @@
-package com.tingfeng.asorm2.json;
+package com.tingfeng.asorm2.common;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

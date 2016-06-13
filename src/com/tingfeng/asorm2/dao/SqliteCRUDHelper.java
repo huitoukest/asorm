@@ -8,11 +8,24 @@ import android.database.sqlite.SQLiteDatabase;
  * @author dview76
  *
  */
-public class SqliteCRUDUtils{	
+public class SqliteCRUDHelper {	
 	
-		/****************************************
-		 * 查询操作
-		 * **************************************/
+	private static SqliteCRUDHelper sqliteCRUDHelper=null;
+	
+	private SqliteCRUDHelper(){
+		
+	}
+	public static synchronized  SqliteCRUDHelper getSqliteCRUDHelper(){
+	 	  if(sqliteCRUDHelper==null){
+	 		  sqliteCRUDHelper=new SqliteCRUDHelper();
+	 	  }
+		return sqliteCRUDHelper;
+	}
+			
+			
+	/****************************************
+	 * 查询操作
+	 * **************************************/
 	 /** 
 	  * 返回搜索的cursor;
 	  * @param db
@@ -20,27 +33,27 @@ public class SqliteCRUDUtils{
 	  * @param selectionArgs sql中?占位符的参数
 	  * @return
 	  */
-	 public static Cursor getCursor(SQLiteDatabase db,String sqlString,String[] selectionArgs){
+	 public  Cursor getCursor(SQLiteDatabase db,String sqlString,String[] selectionArgs){
 		 return db.rawQuery(sqlString,selectionArgs);
 	 }
 	 
-
-    public static Cursor getCursor(SQLiteDatabase db,String table, String[] columns, String selection, String[] selectionArgs, String groupBy, String having, String orderBy,String limit) {
-        Cursor cursor = db.query(table, columns, selection, selectionArgs, groupBy, having, orderBy,limit); 
-    	return cursor; 
+	
+	public  Cursor getCursor(SQLiteDatabase db,String table, String[] columns, String selection, String[] selectionArgs, String groupBy, String having, String orderBy,String limit) {
+	    Cursor cursor = db.query(table, columns, selection, selectionArgs, groupBy, having, orderBy,limit); 
+		return cursor; 
 	}
 	/**
 	 * 得到当前某个字段最大值
 	 * @param db
 	 * @return
 	 */
-	public static Long getMaxId(SQLiteDatabase db,String tableName,String columnName){
+	public  Long getMaxId(SQLiteDatabase db,String tableName,String columnName){
 		Cursor c=null;  	
 		c=getCursor(db,tableName,null,"select max("+columnName+") ", null,null,null,null,null);
-    	try{
-    		if(c.moveToNext()){
-    		return c.getLong(c.getColumnIndex(columnName));
-    		}else return null;
+		try{
+			if(c.moveToNext()){
+			return c.getLong(c.getColumnIndex(columnName));
+			}else return null;
 		}finally{
 			if(c!=null) c.close();
 		}
@@ -51,10 +64,10 @@ public class SqliteCRUDUtils{
 	 * @param db
 	 * @return
 	 */
-	public static Long getMinId(SQLiteDatabase db,String tableName,String columnName){
+	public  Long getMinId(SQLiteDatabase db,String tableName,String columnName){
 		Cursor c=null;  	
 		c=getCursor(db,tableName,null,"select min("+columnName+") ", null,null,null,null,null);
-    	try{
+		try{
 			if(c.moveToNext()){
 	    		return c.getLong(c.getColumnIndex(columnName));
 	    	}else return null;
@@ -68,26 +81,26 @@ public class SqliteCRUDUtils{
 	 * @param db
 	 * @return
 	 */
-	public static Long getCount(SQLiteDatabase db,String tableName){		
+	public  Long getCount(SQLiteDatabase db,String tableName){		
 		Cursor c=null;  	
 		c=getCursor(db,tableName,null,"select count(*) ", null,null,null,null,null);
-    	try{
+		try{
 			if(c.moveToNext()){
 	    		return c.getLong(0);
 	    	}else return null;
-    	}finally{
+		}finally{
 			if(c!=null) c.close();
 		}
 	}
- 
-	public static boolean isTableExisted(SQLiteDatabase db,String tableName){	
+	
+	public  boolean isTableExisted(SQLiteDatabase db,String tableName){	
 		Cursor c=null;  	
 		c=getCursor(db, "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='"+tableName+"'", null);
-    	try{
+		try{
 			if(c.moveToNext()){
 	    		return c.getLong(0)>0;
 	    	}else return false;
-    	}finally{
+		}finally{
 			if(c!=null) c.close();
 		}
 	}
@@ -97,7 +110,7 @@ public class SqliteCRUDUtils{
 	 ***************************************************/	
 	
 	//删除操作 
-	public static int delete(SQLiteDatabase db,String tableName,String columnName,String value) 
+	public  int delete(SQLiteDatabase db,String tableName,String columnName,String value) 
 	{
 		String where =columnName + "=?"; 
 		String[] whereValue ={value}; 
@@ -105,7 +118,7 @@ public class SqliteCRUDUtils{
 	}
 	
 	//删除操作 
-	public static int  delete(SQLiteDatabase db,String table, String whereClause, String[] whereArgs) 
+	public  int  delete(SQLiteDatabase db,String table, String whereClause, String[] whereArgs) 
 	{ 
 		return db.delete(table, whereClause, whereArgs); 
 	}
@@ -119,22 +132,22 @@ public class SqliteCRUDUtils{
 	 * @return
 	 * @throws Exception
 	 */
-	public static int  deleteList(SQLiteDatabase db,String tableName,String columnName,String values) throws Exception{
-
+	public  int  deleteList(SQLiteDatabase db,String tableName,String columnName,String values) throws Exception{
+	
 				   String whereClause=columnName+" in (?)";
 				   String[] whereArgs=new String[]{values};
 				  return db.delete(tableName, whereClause, whereArgs);		 
 		 }
 		 
-	 public static int deleteAll(SQLiteDatabase db,String tableName) throws Exception{
+	 public  int deleteAll(SQLiteDatabase db,String tableName) throws Exception{
 		return db.delete(tableName,null,null);
 	 }	 
 		 
-/*************************************************************************
- * 保存以及更新等操作
- *************************************************************************/	 		 	
+	/*************************************************************************
+	* 保存以及更新等操作
+	*************************************************************************/	 		 	
 		    				
-	public static void execSQL(SQLiteDatabase db,String sql){
+	public  void execSQL(SQLiteDatabase db,String sql){
 		 db.execSQL(sql);
 	}
 	
@@ -148,7 +161,7 @@ public class SqliteCRUDUtils{
 	 * @param cv
 	 * @return
 	 */
-	public static long insert(SQLiteDatabase db,String tableName,ContentValues cv) 
+	public  long insert(SQLiteDatabase db,String tableName,ContentValues cv) 
 	{ 
 		long row = db.insert(tableName, null, cv); 
 		return row; 
@@ -157,12 +170,12 @@ public class SqliteCRUDUtils{
 	 * 调用自己写的方法,insert into person(name,phone) values (?,?)
 	 * @param p
 	 */
-	public static void save(SQLiteDatabase db,String sql,Object[] objs)  
+	public  void save(SQLiteDatabase db,String sql,Object[] objs)  
 	{
 	  db.execSQL(sql, objs);  
 	}  
 	
-	public static void update(SQLiteDatabase db,String sql,Object[] objs){
+	public  void update(SQLiteDatabase db,String sql,Object[] objs){
 		 db.execSQL(sql, objs);  
 	}		    			    			    			    	
 	/**
@@ -172,7 +185,7 @@ public class SqliteCRUDUtils{
 	 * @param id
 	 * @param cv
 	 */
-	public static int update(SQLiteDatabase db,String tableName,String column,String value, ContentValues cv) 
+	public  int update(SQLiteDatabase db,String tableName,String column,String value, ContentValues cv) 
 	{ 
 		String where = column+ "=?"; 
 		String[] whereValue = {value}; 
@@ -190,6 +203,4 @@ public class SqliteCRUDUtils{
 	{ 
 			return db.update(tableName, cv, where, whereValue); 
 	}
-
-
 }
