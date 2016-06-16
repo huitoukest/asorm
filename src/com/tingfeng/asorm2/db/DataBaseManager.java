@@ -51,7 +51,7 @@ public class DataBaseManager {
     }
 
     public synchronized SQLiteDatabase getWritableDatabase() {
-	        	return databaseHelper.getWritableDatabase();
+	       return databaseHelper.getWritableDatabase();
     }
     
     public synchronized SQLiteDatabase getReadableDatabase(){
