@@ -84,6 +84,7 @@ public class DataBaseTaskManager {
 			Thread t=new Thread(new Runnable() {
 				@Override
 				public void run() {
+					task.beforeDbTask();
 					currentIndex.set(currentIndex.get()+1);
 					SQLiteDatabase db=dbThread.get();
 					boolean manageTransaction=false;
@@ -97,7 +98,7 @@ public class DataBaseTaskManager {
 					try{
 							if(manageTransaction)
 						    db.beginTransaction();
-							successTrans=task.doTask(db);
+							successTrans=task.doDbTask(db);
 						}catch(Throwable e){
 							successTrans=false;
 							e.printStackTrace();
@@ -111,6 +112,8 @@ public class DataBaseTaskManager {
 								 dbThread.set(null);
 							 }
 						}
+					
+					task.afterDbTask();
 					runWriteTask();
 					/**
 					 * 完成一个任务后，移出任务，然后继续下一个任务
@@ -134,7 +137,7 @@ public class DataBaseTaskManager {
 				@Override
 				public void run() {
 					SQLiteDatabase db=dbManager.getReadableDatabase();				
-					task.doTask(db);					
+					task.doDbTask(db);					
 					/**
 					 * 完成一个任务后，移出任务，然后继续下一个任务
 					 */

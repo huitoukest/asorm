@@ -29,7 +29,7 @@ public class DataBaseManager {
             DataBaseTaskManager.addDataBaseTask(new DataBaseTaskI() {
 				
 				@Override
-				public boolean doTask(SQLiteDatabase db) {
+				public boolean doDbTask(SQLiteDatabase db) {
 					try {
 						EntityManager.getEntityManager(entityInfos).createAllEntity(db);
 						return true;
@@ -38,6 +38,10 @@ public class DataBaseManager {
 						return false;
 					}
 				}
+				@Override
+				public void beforeDbTask(){}
+				@Override
+				public void afterDbTask(){}
 			}, TransActionType.Write);
         }                  
     }
